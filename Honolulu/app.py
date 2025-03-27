@@ -1,6 +1,6 @@
 # Import the dependencies.
 from flask import Flask, jsonify
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 import numpy as np
@@ -46,13 +46,14 @@ def welcome():
         f'available routes:<br/>'
         f'/api/v1.0/precipitation<br/>'
         f'/api/v1.0/stations<br/>'
-        f'/api/v1.0/tobs'
+        f'/api/v1.0/tobs<br/>'
+        f'/api/v1.0/<start><br/>'
+        f'/api/v1.0/<start>/<end>'
         )
 
 # PRECIPITATION ROUTE
 @app.route('/api/v1.0/precipitation')
 def prcp():
-
     # Query database for precipitation info
     query = session.query(Measurement.date, Measurement.prcp).\
       filter(Measurement.date <= '2017-08-23', Measurement.date >= '2016-08-23').all()
@@ -71,15 +72,65 @@ def prcp():
 
 # STATION ROUTE
 @app.route('/api/v1.0/stations')
-def station():
+def stations():
 
-    stations = session.query(Measurement.station).distinct()
-    return jsonify(stations)
+    # Run query
+    query = session.query(Measurement.station).distinct().all()
+
+    session.close()
+
+    # Convert to normal list
+    station_list = list(np.ravel(query))
+
+    return jsonify(station_list)
 
 
 # TOBS ROUTE
-# @app.route('/api/v1.0/tobs')
+@app.route('/api/v1.0/tobs')
+def tobs():
 
+    # Run query
+    query = session.query(Measurement.date, Measurement.tobs).filter(Measurement.station=='USC00519281', Measurement.date <= '2017-08-23', Measurement.date >= '2016-08-23').all()
+    
+    session.close()
+
+    # Convert to normal list
+    tobs_list = list(np.ravel(query))
+
+    return jsonify(tobs_list)
+
+
+# START DATE ROUTE
+@app.route('/api/v1.0/<start>')
+def temps_start(start):
+
+    # Query
+    query = session.query(func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)) \
+    .filter(Measurement.date>=start) \
+    .all()
+
+    session.close()
+
+    # Convert to list
+    temps_start_list = list(np.ravel(query))
+
+    return jsonify(temps_start_list)
+
+# START-END DATE ROUTE
+@app.route('/api/v1.0/<start>/<end>')
+def temps_start_end(start, end):
+
+    # Query
+    query = session.query(func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)) \
+    .filter(Measurement.date>=start, Measurement.date<=end) \
+    .all()
+
+    session.close()
+
+    # Convert to list
+    temps_start_end_list = list(np.ravel(query))
+
+    return jsonify(temps_start_end_list)
 
 
 #################################################
